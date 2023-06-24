@@ -23,4 +23,5 @@ Each function is accompanied by a detailed description of its parameters and the
 Please refer to the individual function documentation within the repository for more detailed information on each analysis and usage examples.
 
 # Contact
-napoleonic_bores@proton.me
+- email: napoleonic_bores@proton.me
+- discord: elkronos
