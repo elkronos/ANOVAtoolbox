@@ -20,7 +20,7 @@ This function performs Welch's Analysis of Variance (ANOVA) and post-hoc tests f
 ## Notes:
 Each function is accompanied by a detailed description of its parameters and the returned results.
 
-Note: Please refer to the individual function documentation within the repository for more detailed information on each analysis and usage examples.
+Please refer to the individual function documentation within the repository for more detailed information on each analysis and usage examples.
 
 # Contact
 napoleonic_bores@proton.me
