@@ -9,7 +9,7 @@ This function performs a one-way ANOVA analysis for a binary response variable. 
 This function performs a deviance analysis of variance (ANOVA) for count data using Poisson regression. It takes a data frame containing the variables of interest and performs the ANOVA analysis. The function provides the deviance ANOVA table, post-hoc test results, effect size (incidence rate ratios), confidence intervals, and a bar plot of the response by group.
 
 ### 3. GLM and ANOVA Analysis
-This function performs a Generalized Linear Model (GLM) analysis with ANOVA. It takes a data frame or data table containing the data for analysis and fits the GLM model. The function provides various outputs such as residuals, ANOVA test results, effect size, confidence intervals, and plots including a residuals vs fitted plot.
+This function performs a Generalized Linear Model (GLM) ANOVA. It fits the GLM model to the data and allows the user to review such as residuals, ANOVA test results, effect size, confidence intervals, and plot the effects.
 
 ### 4. Kruskal-Wallis Test and Post-Hoc Analysis with Boxplot Visualization
 This function conducts a Kruskal-Wallis test and performs post-hoc analysis for comparing the distribution of a numeric response variable across different groups defined by one or more categorical variables. It also generates a boxplot to visualize the distribution of the response variable by group.
