@@ -17,6 +17,7 @@ This function conducts a Kruskal-Wallis test and performs post-hoc analysis for 
 ### 5. `anova_welch` - Welch's ANOVA and Post-hoc Tests
 This function performs Welch's Analysis of Variance (ANOVA) and post-hoc tests for group comparisons. It calculates means, standard deviations, confidence intervals, effect sizes, and generates a bar plot with means and standard deviations.
 
+### 6. Use table
 
 | Function    | When to Use                                                                 | Assumptions                                                                                                     |
 |-------------|-----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
