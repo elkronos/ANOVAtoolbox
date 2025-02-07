@@ -17,6 +17,16 @@ This function conducts a Kruskal-Wallis test and performs post-hoc analysis for 
 ### 5. `anova_welch` - Welch's ANOVA and Post-hoc Tests
 This function performs Welch's Analysis of Variance (ANOVA) and post-hoc tests for group comparisons. It calculates means, standard deviations, confidence intervals, effect sizes, and generates a bar plot with means and standard deviations.
 
+
+| Function    | When to Use                                                                 | Assumptions                                                                                                     |
+|-------------|-----------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|
+| **anova_bin**   | When analyzing binary response variables and comparing group effects using logistic regression. | - Response variable is binary (0/1).<br>- Observations are independent.<br>- Assumes logistic model conditions (e.g., linearity in the log odds). |
+| **anova_count** | When working with count data to assess group differences via Poisson regression. | - Response consists of non-negative integer counts.<br>- Data follow a Poisson distribution (variance ≈ mean).<br>- Observations are independent. |
+| **anova_glm**   | When performing an ANOVA within a generalized linear model framework for various data distributions. | - Assumptions depend on the chosen GLM family and link function (e.g., normality for Gaussian models).<br>- Observations are independent. |
+| **anova_kw**    | When the numeric response does not meet normality assumptions; ideal for comparing medians across groups using a non-parametric approach. | - Data are at least ordinal.<br>- Samples are independent.<br>- Group distributions should have similar shapes aside from differences in medians. |
+| **anova_welch** | When comparing group means in the presence of unequal variances; uses Welch’s ANOVA with post-hoc tests. | - Within-group data are approximately normally distributed.<br>- Observations are independent.<br>- Does not require equal variances across groups. |
+
+
 ## Notes:
 Each function is accompanied by a detailed description of its parameters and the returned results.
 
