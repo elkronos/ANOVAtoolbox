@@ -82,7 +82,7 @@ test_that("Grouping variable conversion to factor", {
   
   # Retrieve the x-axis labels using the modern ggplot2 API.
   x_labels <- suppressWarnings(
-    ggplot_build(res$boxplot)$layout$panel_scales_x[[1]]$get_labels()
+    ggplot_build(res$boxplot)$layout$panel_params[[1]]$x$get_labels()
   )
   
   # Check that we successfully retrieved a non-null set of labels.
@@ -117,9 +117,9 @@ test_that("Output structure with single grouping variable (plot_residuals = TRUE
 })
 
 # ------------------------------------------------------------------------------
-# Test 5: Valid output with multiple grouping variables and sum_squares_type = "III"
+# Test 5: Valid output with multiple grouping variables using default (full_factorial = FALSE)
 # ------------------------------------------------------------------------------
-test_that("Output structure with multiple grouping variables", {
+test_that("Output structure with multiple grouping variables (default, full_factorial = FALSE)", {
   res <- suppressWarnings(anova_glm(data_double, "value", c("group1", "group2"),
                                     sum_squares_type = "III", plot_residuals = FALSE))
   
@@ -134,16 +134,57 @@ test_that("Output structure with multiple grouping variables", {
   expect_true("residuals_plot" %in% names(res))
   expect_true("boxplot" %in% names(res))
   
-  # plot_residuals = FALSE should yield a NULL residuals_plot.
+  # Since full_factorial is FALSE by default, plot_residuals = FALSE yields a NULL residuals_plot.
   expect_null(res$residuals_plot)
   
-  # The boxplot should be a ggplot object and include facetting.
-  expect_true(inherits(res$boxplot, "ggplot"))
-  expect_true(!is.null(res$boxplot$facet))
+  # For non-full-factorial mode, the predictor is a combined interaction term.
+  # Check that the x-axis label in the boxplot corresponds to "Combined Group (Interaction Term)"
+  expect_equal(res$boxplot$labels$x, "Combined Group (Interaction Term)")
+  
+  # Also, verify that the model coefficients include "interaction_term".
+  coef_names <- names(coef(res$model))
+  expect_true(any(grepl("interaction_term", coef_names)))
+  
+  # In this mode, post-hoc analysis should be computed when >2 groups are present.
+  expect_false(is.null(res$posthoc))
 })
 
 # ------------------------------------------------------------------------------
-# Test 6: Error for unsupported sum_squares_type parameter
+# Test 6: Valid output with multiple grouping variables and full_factorial = TRUE
+# ------------------------------------------------------------------------------
+test_that("Output structure with multiple grouping variables (full_factorial = TRUE)", {
+  res <- suppressWarnings(anova_glm(data_double, "value", c("group1", "group2"),
+                                    sum_squares_type = "III", plot_residuals = FALSE, full_factorial = TRUE))
+  
+  expect_type(res, "list")
+  expect_true("model" %in% names(res))
+  expect_true("model_stats" %in% names(res))
+  expect_true("anova_test" %in% names(res))
+  expect_true("posthoc" %in% names(res))
+  expect_true("effect_size" %in% names(res))
+  expect_true("confidence_intervals" %in% names(res))
+  expect_true("residuals" %in% names(res))
+  expect_true("residuals_plot" %in% names(res))
+  expect_true("boxplot" %in% names(res))
+  
+  # Check that residuals_plot remains NULL when plot_residuals is FALSE.
+  expect_null(res$residuals_plot)
+  
+  # For full_factorial mode, the model should be built using separate main effects and interactions.
+  # The coefficient names should NOT include "interaction_term".
+  coef_names <- names(coef(res$model))
+  expect_false(any(grepl("interaction_term", coef_names)))
+  
+  # The boxplot should include facetting (i.e. a non-null facet attribute).
+  expect_true(inherits(res$boxplot, "ggplot"))
+  expect_true(!is.null(res$boxplot$facet))
+  
+  # Post-hoc analysis is not performed for full factorial models.
+  expect_null(res$posthoc)
+})
+
+# ------------------------------------------------------------------------------
+# Test 7: Error for unsupported sum_squares_type parameter
 # ------------------------------------------------------------------------------
 test_that("Error for unsupported sum_squares_type", {
   expect_error(
@@ -153,7 +194,7 @@ test_that("Error for unsupported sum_squares_type", {
 })
 
 # ------------------------------------------------------------------------------
-# Test 7: Post-hoc analysis output when there are >2 levels
+# Test 8: Post-hoc analysis output when there are >2 levels (single grouping variable)
 # ------------------------------------------------------------------------------
 test_that("Post-hoc analysis for >2 groups", {
   res <- suppressWarnings(anova_glm(data_single, "value", c("group")))
@@ -165,7 +206,7 @@ test_that("Post-hoc analysis for >2 groups", {
 })
 
 # ------------------------------------------------------------------------------
-# Test 8: Post-hoc analysis is NULL when there are only 2 groups
+# Test 9: Post-hoc analysis is NULL when there are only 2 groups
 # ------------------------------------------------------------------------------
 test_that("No post-hoc analysis for only 2 groups", {
   data_two <- data.frame(
@@ -180,7 +221,7 @@ test_that("No post-hoc analysis for only 2 groups", {
 })
 
 # ------------------------------------------------------------------------------
-# Test 9: Confidence intervals output is a data frame with proper dimensions
+# Test 10: Confidence intervals output is a data frame with proper dimensions
 # ------------------------------------------------------------------------------
 test_that("Confidence intervals output", {
   res <- suppressWarnings(anova_glm(data_single, "value", c("group")))
@@ -191,7 +232,7 @@ test_that("Confidence intervals output", {
 })
 
 # ------------------------------------------------------------------------------
-# Test 10: Effect size is computed correctly
+# Test 11: Effect size is computed correctly
 # ------------------------------------------------------------------------------
 test_that("Effect size computation", {
   res <- suppressWarnings(anova_glm(data_single, "value", c("group")))
@@ -202,7 +243,7 @@ test_that("Effect size computation", {
 })
 
 # ------------------------------------------------------------------------------
-# Test 11: GLM family parameter works (using binomial family)
+# Test 12: GLM family parameter works (using binomial family)
 # ------------------------------------------------------------------------------
 test_that("GLM family parameter works with binomial family", {
   res <- suppressWarnings(anova_glm(data_binomial, "outcome", c("group"),
