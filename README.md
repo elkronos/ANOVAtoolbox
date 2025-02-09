@@ -2,7 +2,7 @@
 This repo contains a collection of functions for performing various statistical analyses and generating visualizations. The functions are designed to work with different types of data and provide comprehensive outputs for data analysis.
 
 ## Functions Included:
-### 1. `ancova_analysis` - Enhanced Robust ANCOVA Analysis
+### 1. `ancova_analysis` - ANCOVA Analysis
 This function performs a robust ANCOVA analysis by comparing a numeric dependent variable across groups while controlling for a covariate. It checks the homogeneity of regression slopes, assesses the normality of residuals (via Shapiro-Wilk test and Q-Q plot), tests the homogeneity of variances using Levene's test, calculates partial eta squared effect sizes, computes estimated marginal means (EMMs) with 95% confidence intervals, and generates several diagnostic plots.
 
 ### 2. `anova_bin` - One-way ANOVA for Binary Response Variable
