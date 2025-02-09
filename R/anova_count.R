@@ -1,10 +1,3 @@
-library(data.table)
-library(stats)
-library(ggplot2)
-library(broom)
-library(rlang)
-library(multcomp)
-
 #' Perform Deviance ANOVA for Count Data Using Poisson Regression
 #'
 #' This function fits a Poisson regression model to count data using an interaction of grouping variables,
@@ -20,13 +13,22 @@ library(multcomp)
 #' @param plot Logical. If \code{TRUE} (default), the count plot is printed.
 #'
 #' @return A list with the following elements:
-#'   \item{model}{The fitted Poisson regression model object.}
-#'   \item{overdispersion_statistic}{The overdispersion statistic (Pearson chi-square / df).}
-#'   \item{overdispersion_check_message}{A message regarding overdispersion.}
-#'   \item{deviance_anova}{The deviance ANOVA table.}
-#'   \item{posthoc}{The post-hoc test results (Tukey contrasts).}
-#'   \item{effect_size}{A tidy data frame of incidence rate ratios with confidence intervals.}
-#'   \item{count_plot}{A ggplot2 object showing the total count by group.}
+#'   \describe{
+#'     \item{model}{The fitted Poisson regression model object.}
+#'     \item{overdispersion_statistic}{The overdispersion statistic (Pearson chi-square divided by the residual degrees of freedom).}
+#'     \item{overdispersion_check_message}{A message regarding overdispersion.}
+#'     \item{deviance_anova}{The deviance ANOVA table.}
+#'     \item{posthoc}{The post-hoc test results (Tukey contrasts) as produced by \code{multcomp::glht}, or \code{NULL} if the test fails.}
+#'     \item{effect_size}{A tidy data frame of incidence rate ratios (IRRs) with confidence intervals.}
+#'     \item{count_plot}{A \code{ggplot2} object showing the total count by group.}
+#'   }
+#'
+#' @details
+#' This function performs a comprehensive analysis of count data using a Poisson regression model.
+#' It creates an interaction term from the specified grouping variables, fits the model,
+#' checks for overdispersion by comparing the Pearson chi-square statistic to the residual degrees of freedom,
+#' conducts a deviance ANOVA, performs Tukey-adjusted post-hoc tests for pairwise comparisons among interaction levels,
+#' computes incidence rate ratios (IRRs) as effect sizes, and generates a bar plot visualizing total counts per group.
 #'
 #' @examples
 #' \dontrun{
@@ -44,6 +46,14 @@ library(multcomp)
 #' # Check the post-hoc results
 #' summary(results$posthoc)
 #' }
+#'
+#' @export
+#' @import data.table
+#' @import stats
+#' @import ggplot2
+#' @import broom
+#' @import rlang
+#' @import multcomp
 anova_count <- function(data, response_var, group_vars_list, 
                         overdispersion_threshold = 1.5, plot = TRUE) {
   # ----- Input Validation -----------------------------------------------------
@@ -126,23 +136,23 @@ anova_count <- function(data, response_var, group_vars_list,
   
   # ----- Calculate Effect Sizes -----------------------------------------------
   # Compute incidence rate ratios (IRRs) and their confidence intervals
-  effect_size <- tidy(poisson_model, exponentiate = TRUE, conf.int = TRUE)
+  effect_size <- broom::tidy(poisson_model, exponentiate = TRUE, conf.int = TRUE)
   
   # ----- Generate Count Plot --------------------------------------------------
   # Summarize total counts for each interaction group
   summary_data <- data[, .(total_count = sum(get(response_var))), by = group_interaction]
   
-  count_plot <- ggplot(summary_data, aes(x = group_interaction, y = total_count, fill = group_interaction)) +
-    geom_bar(stat = "identity", color = "black") +
-    labs(x = paste(group_vars_list, collapse = " * "), 
-         y = paste("Total", response_var),
-         title = paste("Total", response_var, "by", paste(group_vars_list, collapse = " * "))) +
-    theme_minimal() +
-    theme(
-      axis.text.x = element_text(angle = 45, hjust = 1),
-      plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
-      axis.title.x = element_text(size = 14, face = "bold"),
-      axis.title.y = element_text(size = 14, face = "bold")
+  count_plot <- ggplot2::ggplot(summary_data, ggplot2::aes(x = group_interaction, y = total_count, fill = group_interaction)) +
+    ggplot2::geom_bar(stat = "identity", color = "black") +
+    ggplot2::labs(x = paste(group_vars_list, collapse = " * "), 
+                  y = paste("Total", response_var),
+                  title = paste("Total", response_var, "by", paste(group_vars_list, collapse = " * "))) +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      axis.text.x = ggplot2::element_text(angle = 45, hjust = 1),
+      plot.title = ggplot2::element_text(hjust = 0.5, size = 16, face = "bold"),
+      axis.title.x = ggplot2::element_text(size = 14, face = "bold"),
+      axis.title.y = ggplot2::element_text(size = 14, face = "bold")
     )
   
   if (plot) {

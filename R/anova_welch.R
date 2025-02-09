@@ -1,20 +1,13 @@
-# Load required packages
-library(coin)
-library(ggplot2)
-library(data.table)
-library(nortest)
-library(effsize)
-
 #' Perform Welch's ANOVA with Assumption Checks, Post-hoc Tests, and Effect Sizes
 #'
 #' This function performs Welch's Analysis of Variance (ANOVA) for comparing a numeric response variable
 #' across groups defined by one or more grouping variables. In addition, it evaluates the assumption of
-#' normality of the residuals (using a ggplot QQ plot and the Anderson-Darling test if sample size permits),
+#' normality of the residuals (using a ggplot2-based QQ plot and the Anderson-Darling test if sample size permits),
 #' computes summary statistics (mean, standard deviation, standard error, and 95% confidence intervals),
 #' performs pairwise post-hoc tests with Bonferroni correction (if applicable), and calculates Cohen's d for
 #' pairwise group comparisons.
 #'
-#' **Note:** If the sample size (i.e. number of model residuals) is less than 8, the Anderson-Darling test
+#' **Note:** If the sample size (i.e., number of model residuals) is less than 8, the Anderson-Darling test
 #' will be skipped because the test requires at least 8 observations.
 #'
 #' @param data A data frame containing the data for analysis.
@@ -22,19 +15,50 @@ library(effsize)
 #' @param group_vars A character vector specifying the names of one or more grouping variables in \code{data}.
 #'
 #' @return A list with the following elements:
-#'   \item{assumptions}{A list containing:
-#'     \itemize{
-#'       \item \code{qq_plot}: A ggplot object of the QQ plot for model residuals.
-#'       \item \code{ad_test}: The result of the Anderson-Darling normality test (or \code{NA} if sample size is too small).
+#'   \describe{
+#'     \item{assumptions}{A list containing:
+#'       \describe{
+#'         \item{qq_plot}{A ggplot2 object of the QQ plot for model residuals.}
+#'         \item{ad_test}{The result of the Anderson-Darling normality test (or \code{NA} if sample size is too small).}
+#'       }
 #'     }
+#'     \item{welch_anova}{The result of Welch's ANOVA (using \code{coin::oneway_test}).}
+#'     \item{posthoc}{The result of post-hoc pairwise comparisons (if more than two groups are present).}
+#'     \item{summary_stats}{A data.table containing the group-wise summary statistics (mean, SD, N, SE, and 95% CI).}
+#'     \item{effect_sizes}{A list of Cohen's d effect sizes for all pairwise group comparisons.}
+#'     \item{means_plot}{A ggplot2 barplot showing group means with 95% confidence intervals.}
 #'   }
-#'   \item{welch_anova}{The result of Welch's ANOVA (using \code{coin::oneway_test}).}
-#'   \item{posthoc}{The result of post-hoc pairwise comparisons (if more than two groups are present).}
-#'   \item{summary_stats}{A data.table containing the group-wise summary statistics (mean, SD, N, SE, CI).}
-#'   \item{effect_sizes}{A list of Cohen's d effect sizes for all pairwise group comparisons.}
-#'   \item{means_plot}{A ggplot barplot showing group means with 95% confidence intervals.}
+#'
+#' @examples
+#' \dontrun{
+#' # Example dataset
+#' set.seed(123)
+#' group <- rep(c("A", "B", "C"), each = 30)
+#' value <- c(rnorm(30, 10, 2), rnorm(30, 12, 2.5), rnorm(30, 9, 1.5))
+#' data_example <- data.frame(group, value)
+#'
+#' # Run Welch's ANOVA with the function
+#' results <- anova_welch(data_example, "value", "group")
+#'
+#' # Display the QQ plot
+#' print(results$assumptions$qq_plot)
+#'
+#' # Display Welch's ANOVA result
+#' print(results$welch_anova)
+#'
+#' # Display group summary statistics
+#' print(results$summary_stats)
+#'
+#' # Display the means plot
+#' print(results$means_plot)
+#' }
 #'
 #' @export
+#' @import coin
+#' @import ggplot2
+#' @import data.table
+#' @import nortest
+#' @import effsize
 anova_welch <- function(data, response_var, group_vars) {
   ## --- Input Validation ---
   if (!is.data.frame(data)) {

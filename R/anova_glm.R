@@ -1,3 +1,104 @@
+#' Perform ANOVA for a Generalized Linear Model with Grouping Variables
+#'
+#' This function fits a generalized linear model (GLM) to the provided dataset using one or more
+#' grouping variables and performs an analysis of variance (ANOVA). It constructs the model formula
+#' based on the provided grouping variables and whether a full factorial design is desired. Additionally,
+#' the function computes model statistics, generates diagnostic plots (residuals and boxplot), and
+#' optionally conducts post-hoc analyses using Tukey comparisons.
+#'
+#' @param data A \code{data.frame} (or \code{data.table}) containing the dataset.
+#' @param response_var A character string specifying the name of the response variable column in \code{data}.
+#' @param group_vars_vec A character vector specifying the names of the grouping variables in \code{data}.
+#' @param family A family object specifying the error distribution and link function for the GLM.
+#'   Defaults to \code{gaussian()}.
+#' @param sum_squares_type A character string indicating the type of sum of squares to use in the ANOVA.
+#'   Supported options are \code{"II"} (default) and \code{"III"}. When \code{"III"} is specified, the function
+#'   employs \code{car::Anova}.
+#' @param plot_residuals Logical. If \code{TRUE}, a residuals vs fitted values plot is generated using ggplot2.
+#'   Defaults to \code{FALSE}.
+#' @param full_factorial Logical. If \code{TRUE} and multiple grouping variables are provided, a full factorial
+#'   model (with all interactions) is fitted. Otherwise, an interaction term is created to combine the groups.
+#'   Defaults to \code{FALSE}.
+#'
+#' @details
+#' The function carries out the following steps:
+#' \enumerate{
+#'   \item \strong{Input Checks:} Validates that the \code{response_var} and each element in \code{group_vars_vec}
+#'   exist as columns in \code{data}. If a grouping variable is not a factor, it is converted to one.
+#'   \item \strong{Data Preparation:} Converts \code{data} to a \code{data.table} for efficient processing.
+#'   \item \strong{Model Formula Construction:} Depending on the number of grouping variables and the
+#'   \code{full_factorial} flag, constructs an appropriate model formula. For a single grouping variable, the
+#'   model is simple; for multiple groups, either a full factorial or an interaction term is used.
+#'   \item \strong{Model Fitting:} Fits the GLM using the constructed formula and the specified \code{family}.
+#'   \item \strong{Diagnostics:} Computes residuals and fitted values. If \code{plot_residuals} is \code{TRUE},
+#'   a residuals vs fitted values plot is created.
+#'   \item \strong{ANOVA Analysis:} Performs ANOVA using either type II or type III sum of squares based on
+#'   the \code{sum_squares_type} parameter.
+#'   \item \strong{Model Statistics:} Calculates pseudo R-squared and other model statistics (AIC, BIC, deviance, etc.).
+#'   \item \strong{Post-hoc Analysis:} When appropriate (and if not using a full factorial model), conducts a
+#'   post-hoc Tukey comparison.
+#'   \item \strong{Plotting:} Generates a boxplot of the response variable by group.
+#' }
+#'
+#' @return A list containing:
+#' \describe{
+#'   \item{\code{model}}{The fitted GLM object.}
+#'   \item{\code{model_stats}}{A list of model statistics including AIC, BIC, null and residual deviances, and degrees of freedom.}
+#'   \item{\code{anova_test}}{A data frame of the ANOVA table results.}
+#'   \item{\code{posthoc}}{A summary of the post-hoc analysis (if performed), or \code{NULL} otherwise.}
+#'   \item{\code{effect_size}}{The pseudo R-squared value calculated as \code{1 - (deviance / null.deviance)}.}
+#'   \item{\code{confidence_intervals}}{A data frame of confidence intervals for the model coefficients.}
+#'   \item{\code{residuals}}{The residuals from the GLM.}
+#'   \item{\code{residuals_plot}}{A ggplot object showing residuals vs fitted values if \code{plot_residuals} is \code{TRUE}, else \code{NULL}.}
+#'   \item{\code{boxplot}}{A ggplot object displaying a boxplot of the response variable by group.}
+#' }
+#'
+#' @seealso \code{\link[stats]{glm}}, \code{\link[car]{Anova}}, \code{\link[multcomp]{glht}},
+#'   \code{\link[data.table]{as.data.table}}, \code{\link[ggplot2]{ggplot}}
+#'
+#' @examples
+#' \dontrun{
+#'   # Load required libraries
+#'   library(data.table)
+#'   library(ggplot2)
+#'   library(car)
+#'   library(multcomp)
+#'
+#'   # Generate example data
+#'   set.seed(123)
+#'   example_data <- data.frame(
+#'     response = rnorm(100),
+#'     group1 = sample(letters[1:4], 100, replace = TRUE),
+#'     group2 = sample(LETTERS[1:3], 100, replace = TRUE)
+#'   )
+#'
+#'   # Perform the ANOVA GLM analysis with type II sum of squares and residuals plot
+#'   result <- anova_glm(data = example_data,
+#'                       response_var = "response",
+#'                       group_vars_vec = c("group1", "group2"),
+#'                       family = gaussian(),
+#'                       sum_squares_type = "II",
+#'                       plot_residuals = TRUE,
+#'                       full_factorial = FALSE)
+#'
+#'   # Display the ANOVA table
+#'   print(result$anova_test)
+#'
+#'   # If generated, display the residuals plot
+#'   if (!is.null(result$residuals_plot)) {
+#'     print(result$residuals_plot)
+#'   }
+#'
+#'   # Display the boxplot of the response by group
+#'   print(result$boxplot)
+#' }
+#'
+#' @export
+#' @import data.table
+#' @import ggplot2
+#' @importFrom car Anova
+#' @importFrom multcomp glht
+#' @importFrom stats glm as.formula resid fitted AIC BIC confint
 anova_glm <- function(data, response_var, group_vars_vec,
                       family = gaussian(), sum_squares_type = "II",
                       plot_residuals = FALSE, full_factorial = FALSE) {

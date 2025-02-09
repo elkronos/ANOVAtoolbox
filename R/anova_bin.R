@@ -20,13 +20,23 @@
 #'   \item{fitted_model}{The fitted \code{glm} object.}
 #' }
 #'
-#' @import ggplot2
-#' @import dplyr
-#' @importFrom scales percent
-#' @importFrom broom tidy
-#' @importFrom rlang sym syms !!! 
-#' @importFrom stats anova glm logLik reformulate AIC BIC
-#' @importFrom magrittr %>%
+#' @details
+#' This function fits a logistic regression model using the provided binary response variable and grouping variable(s).
+#' It performs the following steps:
+#' \enumerate{
+#'   \item Validates that the specified \code{response_var} and \code{group_var} exist in the provided \code{data}.
+#'   \item Optionally removes rows with missing values in these columns if \code{na.rm} is set to \code{TRUE}.
+#'   \item Checks that the response variable is binary.
+#'   \item Converts the grouping variable(s) to factors if they are not already.
+#'   \item Constructs and fits a logistic regression model using \code{\link[stats]{glm}}.
+#'   \item Performs a deviance (likelihood ratio) ANOVA test on the fitted model.
+#'   \item Computes odds ratios (effect sizes) with confidence intervals using \code{\link[broom]{tidy}}.
+#'   \item Calculates additional model statistics including AIC, BIC, log-likelihood, and McFadden's pseudo R-squared.
+#'   \item Prepares and optionally prints a ggplot2 bar plot showing the proportion of response levels across groups.
+#' }
+#'
+#' @seealso \code{\link[stats]{glm}}, \code{\link[dplyr]{filter}}, \code{\link[broom]{tidy}},
+#'   \code{\link[ggplot2]{ggplot}}, \code{\link[scales]{percent}}, \code{\link[rlang]{sym}}, \code{\link[magrittr]{\%>\%}}
 #'
 #' @examples
 #' \dontrun{
@@ -43,6 +53,13 @@
 #' }
 #'
 #' @export
+#' @import ggplot2
+#' @import dplyr
+#' @importFrom scales percent
+#' @importFrom broom tidy
+#' @importFrom rlang sym syms !!!
+#' @importFrom stats anova glm logLik reformulate AIC BIC
+#' @importFrom magrittr %>%
 anova_bin <- function(data, response_var, group_var, na.rm = TRUE, print_plot = TRUE, ...) {
   
   # Ensure the pipe operator is available
@@ -66,10 +83,9 @@ anova_bin <- function(data, response_var, group_var, na.rm = TRUE, print_plot = 
   required_vars <- c(response_var, group_var)
   if (na.rm) {
     n_before <- nrow(data)
-    # Use if_all() instead of across() to avoid deprecation warnings
     data <- data %>% dplyr::filter(if_all(all_of(required_vars), ~ !is.na(.)))
     n_after <- nrow(data)
-    if(n_after < n_before) {
+    if (n_after < n_before) {
       message(sprintf("Removed %d rows with missing values in required columns.", n_before - n_after))
     }
   }

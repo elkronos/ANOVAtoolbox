@@ -1,10 +1,3 @@
-# Load necessary packages
-library(data.table)
-library(ggplot2)
-library(nortest)
-library(rlang)
-library(dunn.test)
-
 #' Perform Kruskal-Wallis Test and Post-Hoc Analysis with Boxplot Visualization
 #'
 #' This function conducts a Kruskal-Wallis test and performs post-hoc analysis for comparing the distribution 
@@ -12,17 +5,31 @@ library(dunn.test)
 #' generates a boxplot to visualize the distribution of the response variable by group, and (optionally) a QQ plot 
 #' of model residuals.
 #'
-#' @param data A data.frame or data.table containing the data.
+#' @param data A \code{data.frame} or \code{data.table} containing the data.
 #' @param response_var A character string indicating the name of the numeric response variable.
 #' @param group_vars_vec A character vector specifying the names of the group variable columns.
-#' @param plot_qq Logical; if TRUE, a QQ plot of the model residuals will be generated. Default is FALSE.
-#' @param posthoc_method A character string specifying the p-value adjustment method for Dunn's test. Default is "bh" (Benjamini-Hochberg).
+#' @param plot_qq Logical; if \code{TRUE}, a QQ plot of the model residuals will be generated. Default is \code{FALSE}.
+#' @param posthoc_method A character string specifying the p-value adjustment method for Dunn's test. Default is \code{"bh"} (Benjamini-Hochberg).
 #'
 #' @return A list containing:
-#' \item{assumptions}{A list with the model residuals, the Anderson-Darling normality test result, and (if requested) the QQ plot.}
-#' \item{kruskal_test}{The result of the Kruskal-Wallis test.}
-#' \item{posthoc}{The result of Dunn's test post-hoc analysis (if applicable).}
-#' \item{boxplot}{The ggplot2 boxplot object.}
+#' \describe{
+#'   \item{assumptions}{A list with the model residuals, the Anderson-Darling normality test result, and (if requested) the QQ plot.}
+#'   \item{kruskal_test}{The result of the Kruskal-Wallis test.}
+#'   \item{posthoc}{The result of Dunn's test post-hoc analysis (if applicable).}
+#'   \item{boxplot}{The \code{ggplot2} boxplot object.}
+#' }
+#'
+#' @details
+#' The function performs the following steps:
+#' \enumerate{
+#'   \item Validates and prepares the data by checking that the response variable exists and is numeric, and that the grouping variables exist and are factors.
+#'   \item Converts the input data to a \code{data.table} (if not already) and creates an interaction term combining the grouping variables.
+#'   \item Fits an ANOVA model (\code{aov}) using the interaction term to obtain residuals, and then applies the Anderson-Darling test (from the \code{nortest} package) on these residuals.
+#'   \item Optionally generates a QQ plot of the residuals.
+#'   \item Performs a Kruskal-Wallis test on the response variable across the interaction groups.
+#'   \item If there are at least two groups, conducts Dunn's post-hoc test (using the \code{dunn.test} package) with the specified p-value adjustment method.
+#'   \item Creates a boxplot of the response variable by group. If multiple grouping variables are provided, additional groups are displayed via faceting.
+#' }
 #'
 #' @examples
 #' # Single-factor example:
@@ -48,6 +55,11 @@ library(dunn.test)
 #' results_double <- anova_kw(data_double, "value", c("group1", "group2"), plot_qq = TRUE)
 #'
 #' @export
+#' @import data.table
+#' @import ggplot2
+#' @import nortest
+#' @import rlang
+#' @import dunn.test
 anova_kw <- function(data, response_var, group_vars_vec, plot_qq = FALSE, posthoc_method = "bh") {
   
   #### Helper Function: Validate and Prepare Data ####
