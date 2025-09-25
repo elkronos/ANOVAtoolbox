@@ -6,7 +6,7 @@ This repository contains a collection of functions for performing various statis
 The functions are listed in alphabetical order:
 
 ### 1. `ancova_analysis` - ANCOVA Analysis
-This function performs a robust ANCOVA analysis by comparing a numeric dependent variable across groups while controlling for a covariate. It checks the homogeneity of regression slopes, assesses the normality of residuals (via Shapiro-Wilk test and Q-Q plot), tests the homogeneity of variances using Levene's test, calculates partial eta squared effect sizes, computes estimated marginal means (EMMs) with 95% confidence intervals, and generates several diagnostic plots.
+This function performs an ANCOVA analysis by comparing a numeric dependent variable across groups while controlling for a covariate. It checks the homogeneity of regression slopes, assesses the normality of residuals (via Shapiro-Wilk test and Q-Q plot), tests the homogeneity of variances using Levene's test, calculates partial eta squared effect sizes, computes estimated marginal means (EMMs) with 95% confidence intervals, and generates several diagnostic plots.
 
 ### 2. `anova_bin` - One-way ANOVA for Binary Response Variable
 This function performs a one-way ANOVA analysis for a binary response variable. It fits a logistic regression model with the specified response variable and group variable(s) and performs deviance ANOVA to assess the significance of the group effect. The function also computes the effect size (odds ratios) and confidence intervals, and generates a bar plot showing the proportion of the response variable by group.
@@ -27,7 +27,7 @@ This function fits a repeated measures analysis of variance (ANOVA) model to dat
 This function performs Welch's Analysis of Variance (ANOVA) and post-hoc tests for group comparisons. It calculates means, standard deviations, confidence intervals, effect sizes, and generates a bar plot with means and confidence intervals.
 
 ### 8. `manova_analysis` - MANOVA Analysis
-This function performs a robust multivariate analysis of variance (MANOVA) for comparing multiple dependent variables across groups. It conducts assumption tests—including Mardia's multivariate normality test and Box's M test for homogeneity of covariance matrices—fits the MANOVA model, runs follow-up univariate ANOVAs, computes partial eta squared effect sizes, calculates estimated marginal means with confidence intervals, and generates diagnostic plots and a canonical discriminant analysis plot.
+This function performs a multivariate analysis of variance (MANOVA) for comparing multiple dependent variables across groups. It conducts assumption tests—including Mardia's multivariate normality test and Box's M test for homogeneity of covariance matrices—fits the MANOVA model, runs follow-up univariate ANOVAs, computes partial eta squared effect sizes, calculates estimated marginal means with confidence intervals, and generates diagnostic plots and a canonical discriminant analysis plot.
 
 ## Use Table
 
