@@ -27,7 +27,7 @@ This function fits a repeated measures analysis of variance (ANOVA) model to dat
 This function performs Welch's Analysis of Variance (ANOVA) and post-hoc tests for group comparisons. It calculates means, standard deviations, confidence intervals, effect sizes, and generates a bar plot with means and confidence intervals.
 
 ### 8. `manova_analysis` - MANOVA Analysis
-This function performs a multivariate analysis of variance (MANOVA) for comparing multiple dependent variables across groups. It conducts assumption tests—including Mardia's multivariate normality test and Box's M test for homogeneity of covariance matrices—fits the MANOVA model, runs follow-up univariate ANOVAs, computes partial eta squared effect sizes, calculates estimated marginal means with confidence intervals, and generates diagnostic plots and a canonical discriminant analysis plot.
+This function performs a multivariate analysis of variance (MANOVA) for comparing multiple dependent variables across groups. It conducts assumption tests (including Mardia's multivariate normality test and Box's M test for homogeneity of covariance matrices) fits the MANOVA model, runs follow-up univariate ANOVAs, computes partial eta squared effect sizes, calculates estimated marginal means with confidence intervals, and generates diagnostic plots and a canonical discriminant analysis plot.
 
 ## Use Table
 
