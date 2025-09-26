@@ -1,176 +1,280 @@
 #' Perform ANOVA for a Generalized Linear Model with Grouping Variables
 #'
-#' This function fits a generalized linear model (GLM) to the provided dataset using one or more
-#' grouping variables and performs an analysis of variance (ANOVA). It constructs the model formula
-#' based on the provided grouping variables and whether a full factorial design is desired. Additionally,
-#' the function computes model statistics, generates diagnostic plots (residuals and boxplot), and
-#' optionally conducts post-hoc analyses using Tukey comparisons.
+#' Fits a GLM, performs Type II/III ANOVA via car::Anova(), optional Tukey/emmeans
+#' post-hoc, diagnostics, and plots. Modular helpers are defined inside.
 #'
-#' @param data A \code{data.frame} (or \code{data.table}) containing the dataset.
-#' @param response_var A character string specifying the name of the response variable column in \code{data}.
-#' @param group_vars_vec A character vector specifying the names of the grouping variables in \code{data}.
-#' @param family A family object specifying the error distribution and link function for the GLM.
-#'   Defaults to \code{gaussian()}.
-#' @param sum_squares_type A character string indicating the type of sum of squares to use in the ANOVA.
-#'   Supported options are \code{"II"} (default) and \code{"III"}. When \code{"III"} is specified, the function
-#'   employs \code{car::Anova}.
-#' @param plot_residuals Logical. If \code{TRUE}, a residuals vs fitted values plot is generated using ggplot2.
-#'   Defaults to \code{FALSE}.
-#' @param full_factorial Logical. If \code{TRUE} and multiple grouping variables are provided, a full factorial
-#'   model (with all interactions) is fitted. Otherwise, an interaction term is created to combine the groups.
-#'   Defaults to \code{FALSE}.
+#' @param data data.frame or data.table
+#' @param response_var character, name of response column
+#' @param group_vars_vec character vector, names of grouping variables (>=1)
+#' @param family a \code{family} object for GLM; default \code{gaussian()}
+#' @param sum_squares_type "II" (default) or "III"
+#' @param plot_residuals logical, make residuals vs fitted plot
+#' @param full_factorial logical; if TRUE and >1 group vars, use full factorial (\code{*}),
+#'   else collapse groups into a single interaction factor
+#' @param posthoc_method one of "none","multcomp","emmeans" (default "multcomp")
+#' @param emmeans_simple_for if using emmeans & full factorial with >=2 factors,
+#'   choose which factor to compare within the second factor (default = first name)
 #'
-#' @details
-#' The function carries out the following steps:
-#' \enumerate{
-#'   \item \strong{Input Checks:} Validates that the \code{response_var} and each element in \code{group_vars_vec}
-#'   exist as columns in \code{data}. If a grouping variable is not a factor, it is converted to one.
-#'   \item \strong{Data Preparation:} Converts \code{data} to a \code{data.table} for efficient processing.
-#'   \item \strong{Model Formula Construction:} Depending on the number of grouping variables and the
-#'   \code{full_factorial} flag, constructs an appropriate model formula. For a single grouping variable, the
-#'   model is simple; for multiple groups, either a full factorial or an interaction term is used.
-#'   \item \strong{Model Fitting:} Fits the GLM using the constructed formula and the specified \code{family}.
-#'   \item \strong{Diagnostics:} Computes residuals and fitted values. If \code{plot_residuals} is \code{TRUE},
-#'   a residuals vs fitted values plot is created.
-#'   \item \strong{ANOVA Analysis:} Performs ANOVA using either type II or type III sum of squares based on
-#'   the \code{sum_squares_type} parameter.
-#'   \item \strong{Model Statistics:} Calculates pseudo R-squared and other model statistics (AIC, BIC, deviance, etc.).
-#'   \item \strong{Post-hoc Analysis:} When appropriate (and if not using a full factorial model), conducts a
-#'   post-hoc Tukey comparison.
-#'   \item \strong{Plotting:} Generates a boxplot of the response variable by group.
-#' }
-#'
-#' @return A list containing:
-#' \describe{
-#'   \item{\code{model}}{The fitted GLM object.}
-#'   \item{\code{model_stats}}{A list of model statistics including AIC, BIC, null and residual deviances, and degrees of freedom.}
-#'   \item{\code{anova_test}}{A data frame of the ANOVA table results.}
-#'   \item{\code{posthoc}}{A summary of the post-hoc analysis (if performed), or \code{NULL} otherwise.}
-#'   \item{\code{effect_size}}{The pseudo R-squared value calculated as \code{1 - (deviance / null.deviance)}.}
-#'   \item{\code{confidence_intervals}}{A data frame of confidence intervals for the model coefficients.}
-#'   \item{\code{residuals}}{The residuals from the GLM.}
-#'   \item{\code{residuals_plot}}{A ggplot object showing residuals vs fitted values if \code{plot_residuals} is \code{TRUE}, else \code{NULL}.}
-#'   \item{\code{boxplot}}{A ggplot object displaying a boxplot of the response variable by group.}
-#' }
-#'
-#' @seealso \code{\link[stats]{glm}}, \code{\link[car]{Anova}}, \code{\link[multcomp]{glht}},
-#'   \code{\link[data.table]{as.data.table}}, \code{\link[ggplot2]{ggplot}}
-#'
-#' @examples
-#' \dontrun{
-#'   # Load required libraries
-#'   library(data.table)
-#'   library(ggplot2)
-#'   library(car)
-#'   library(multcomp)
-#'
-#'   # Generate example data
-#'   set.seed(123)
-#'   example_data <- data.frame(
-#'     response = rnorm(100),
-#'     group1 = sample(letters[1:4], 100, replace = TRUE),
-#'     group2 = sample(LETTERS[1:3], 100, replace = TRUE)
-#'   )
-#'
-#'   # Perform the ANOVA GLM analysis with type II sum of squares and residuals plot
-#'   result <- anova_glm(data = example_data,
-#'                       response_var = "response",
-#'                       group_vars_vec = c("group1", "group2"),
-#'                       family = gaussian(),
-#'                       sum_squares_type = "II",
-#'                       plot_residuals = TRUE,
-#'                       full_factorial = FALSE)
-#'
-#'   # Display the ANOVA table
-#'   print(result$anova_test)
-#'
-#'   # If generated, display the residuals plot
-#'   if (!is.null(result$residuals_plot)) {
-#'     print(result$residuals_plot)
-#'   }
-#'
-#'   # Display the boxplot of the response by group
-#'   print(result$boxplot)
-#' }
+#' @return list(model, model_stats, anova_test, posthoc, effect_sizes,
+#'   confidence_intervals, residuals, residuals_plot, boxplot, notes)
 #'
 #' @export
 #' @import data.table
 #' @import ggplot2
 #' @importFrom car Anova
-#' @importFrom multcomp glht
-#' @importFrom stats glm as.formula resid fitted AIC BIC confint
-anova_glm <- function(data, response_var, group_vars_vec,
-                      family = gaussian(), sum_squares_type = "II",
-                      plot_residuals = FALSE, full_factorial = FALSE) {
+#' @importFrom multcomp glht mcp
+#' @importFrom stats glm as.formula resid fitted AIC BIC confint vcov coef residuals
+anova_glm <- function(
+    data, response_var, group_vars_vec,
+    family = gaussian(), sum_squares_type = "II",
+    plot_residuals = FALSE, full_factorial = FALSE,
+    posthoc_method = c("multcomp","emmeans","none"),
+    emmeans_simple_for = NULL
+) {
   
-  # --- Input Checks ---
-  if (!response_var %in% names(data)) {
-    stop("The response variable '", response_var, "' is not found in the data.")
-  }
-  
-  missing_groups <- setdiff(group_vars_vec, names(data))
-  if (length(missing_groups) > 0) {
-    stop("The following grouping variable(s) are not found in the data: ",
-         paste(missing_groups, collapse = ", "))
-  }
-  
-  # Convert data to data.table for fast processing
-  data <- as.data.table(data)
-  
-  # Ensure that each grouping variable is a factor; if not, convert and message the user.
-  for (var in group_vars_vec) {
-    if (!is.factor(data[[var]])) {
-      data[[var]] <- as.factor(data[[var]])
-      message(sprintf("Variable '%s' was converted to a factor.", var))
+  # ========================= Helpers =========================
+  .check_inputs <- function(dt, y, groups) {
+    if (!y %in% names(dt)) stop("Response variable '", y, "' not found.")
+    missing_groups <- setdiff(groups, names(dt))
+    if (length(missing_groups)) {
+      stop("Grouping variable(s) not found: ", paste(missing_groups, collapse = ", "))
     }
+    invisible(NULL)
   }
   
-  # --- Create Model Formula ---
-  # Always create an interaction_term column (even if only one grouping variable)
-  if (length(group_vars_vec) == 1) {
-    data[, interaction_term := get(group_vars_vec[1])]
-    model_formula <- as.formula(paste(response_var, "~", group_vars_vec[1]))
-  } else {
-    if (full_factorial) {
-      # Build a full factorial formula including main effects and interactions
-      predictors <- paste(group_vars_vec, collapse = " * ")
-      model_formula <- as.formula(paste(response_var, "~", predictors))
+  .coerce_groups_to_factor <- function(dt, groups) {
+    for (v in groups) {
+      if (!is.factor(dt[[v]])) {
+        dt[[v]] <- as.factor(dt[[v]])
+        message(sprintf("Variable '%s' was converted to a factor.", v))
+      }
+    }
+    dt
+  }
+  
+  .build_formula_and_data <- function(dt, y, groups, full_factorial) {
+    if (length(groups) == 1) {
+      form <- as.formula(paste(y, "~", groups[1]))
+      list(formula = form, data = dt, used_interaction = FALSE)
     } else {
-      data[, interaction_term := do.call(interaction, .SD), .SDcols = group_vars_vec]
-      model_formula <- as.formula(paste(response_var, "~ interaction_term"))
+      if (isTRUE(full_factorial)) {
+        preds <- paste(groups, collapse = " * ")
+        form  <- as.formula(paste(y, "~", preds))
+        list(formula = form, data = dt, used_interaction = FALSE)
+      } else {
+        # Single combined interaction factor
+        dt[, interaction_term := do.call(interaction, .SD), .SDcols = groups]
+        form <- as.formula(paste(y, "~ interaction_term"))
+        list(formula = form, data = dt, used_interaction = TRUE)
+      }
     }
   }
   
-  # --- Fit the GLM ---
-  model <- glm(model_formula, data = data, family = family)
+  .fit_glm <- function(formula, dt, fam) {
+    stats::glm(formula, data = dt, family = fam)
+  }
   
-  # --- Diagnostics: Residuals ---
-  model_resid <- resid(model)
-  fitted_vals <- model$fitted.values
+  .anova_car <- function(model, type, fam) {
+    type <- toupper(type)
+    if (!type %in% c("II","III")) stop("sum_squares_type must be 'II' or 'III'.")
+    test_stat <- if (fam$family == "gaussian") "F" else "LR"
+    
+    if (type == "III") {
+      old_opts <- options(contrasts = c("contr.sum", "contr.poly"))
+      on.exit(options(old_opts), add = TRUE)
+    }
+    car::Anova(model, type = if (type == "II") 2L else 3L, test.statistic = test_stat)
+  }
   
-  residuals_plot <- NULL
-  if (plot_residuals) {
-    resid_df <- data.frame(Fitted = fitted_vals, Residuals = model_resid)
-    residuals_plot <- ggplot(resid_df, aes(x = Fitted, y = Residuals)) +
-      geom_point(color = "steelblue") +
-      geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
-      labs(title = "Residuals vs Fitted Values",
-           x = "Fitted Values",
-           y = "Residuals") +
+  # Compute effect sizes (R^2 from model$y for Gaussian; McFadden pseudo-R^2 for GLMs)
+  .effect_sizes <- function(model, fam, ycol, dt) {
+    pseudo <- if (isTRUE(is.finite(model$null.deviance)) && model$null.deviance != 0) {
+      1 - (model$deviance / model$null.deviance)
+    } else {
+      NA_real_
+    }
+    
+    r2_gaussian <- NA_real_
+    if (fam$family == "gaussian") {
+      y_used  <- tryCatch(as.numeric(model$y), error = function(e) NULL)
+      res_used <- tryCatch(residuals(model, type = "response"), error = function(e) NULL)
+      if (!is.null(y_used) && !is.null(res_used)) {
+        n <- min(length(y_used), length(res_used))
+        if (n > 1) {
+          y_used <- y_used[seq_len(n)]
+          res_used <- res_used[seq_len(n)]
+          rss <- sum(res_used^2)
+          tss <- sum((y_used - mean(y_used))^2)
+          if (is.finite(tss) && tss > 0) r2_gaussian <- 1 - rss / tss
+        }
+      }
+    }
+    
+    list(
+      pseudo_r2_mcfadden = pseudo,
+      r2_gaussian = r2_gaussian
+    )
+  }
+  
+  .overdispersion_note <- function(model, fam) {
+    if (fam$family %in% c("poisson", "binomial")) {
+      disp <- model$deviance / model$df.residual
+      if (is.finite(disp) && disp > 1.5) {
+        return(sprintf(
+          "Possible overdispersion detected (dispersion ≈ %.2f). Consider quasi-%s or a different variance model (e.g., negative binomial).",
+          disp, fam$family
+        ))
+      }
+    }
+    NULL
+  }
+  
+  .residuals_plot <- function(model, make_plot) {
+    if (!isTRUE(make_plot)) return(NULL)
+    df <- data.frame(
+      Fitted = fitted(model),
+      Residuals = residuals(model, type = "deviance")
+    )
+    ggplot(df, aes(Fitted, Residuals)) +
+      geom_point(alpha = 0.7) +
+      geom_smooth(method = "loess", se = FALSE, linewidth = 0.6) +
+      geom_hline(yintercept = 0, linetype = "dashed") +
+      labs(title = "Deviance Residuals vs Fitted", x = "Fitted values", y = "Deviance residuals") +
       theme_minimal()
   }
   
-  # --- ANOVA Analysis ---
-  if (toupper(sum_squares_type) == "III") {
-    anova_test <- car::Anova(model, type = 3)
-  } else if (toupper(sum_squares_type) == "II") {
-    anova_test <- anova(model, test = "Chisq")
-  } else {
-    stop("Unsupported sum_squares_type. Please choose either 'II' or 'III'.")
+  .boxplot <- function(dt, y, groups, used_interaction, full_factorial, fam) {
+    if (length(groups) == 1) {
+      return(
+        ggplot(dt, aes_string(x = groups[1], y = y, fill = groups[1])) +
+          geom_boxplot(show.legend = FALSE) +
+          labs(title = "Boxplot of Response by Group",
+               subtitle = sprintf("Response: %s | Group: %s", y, groups[1]),
+               x = groups[1], y = y) +
+          theme_minimal()
+      )
+    }
+    
+    if (isTRUE(full_factorial)) {
+      facet_formula <- as.formula(paste("~", paste(groups[-1], collapse = " + ")))
+      return(
+        ggplot(dt, aes_string(x = groups[1], y = y, fill = groups[1])) +
+          geom_boxplot(show.legend = FALSE) +
+          labs(title = "Boxplot of Response by Group",
+               subtitle = sprintf("Response: %s | Groups: %s", y, paste(groups, collapse = ", ")),
+               x = groups[1], y = y) +
+          theme_minimal() +
+          facet_grid(facet_formula)
+      )
+    }
+    
+    if (isTRUE(used_interaction)) {
+      return(
+        ggplot(dt, aes(x = interaction_term, y = .data[[y]], fill = interaction_term)) +
+          geom_boxplot(show.legend = FALSE) +
+          labs(title = "Boxplot by Combined Group (Interaction)",
+               subtitle = sprintf("Response: %s | Combined groups: %s", y, paste(groups, collapse = ", ")),
+               x = "Combined group", y = y) +
+          theme_minimal()
+      )
+    }
+    
+    NULL
   }
   
-  # --- Compute Effect Size and Other Model Statistics ---
-  pseudo_r2 <- 1 - (model$deviance / model$null.deviance)
+  .confint_safe <- function(model) {
+    tryCatch({
+      ci <- as.data.frame(confint(model))
+      colnames(ci) <- c("2.5 %", "97.5 %")
+      ci
+    }, error = function(e) {
+      se <- sqrt(diag(vcov(model)))
+      co <- coef(model)
+      ci <- cbind(co - 1.96 * se, co + 1.96 * se)
+      colnames(ci) <- c("2.5 %", "97.5 %")
+      as.data.frame(ci)
+    })
+  }
+  
+  .posthoc_multcomp <- function(model, dt, groups, used_interaction, y, fam) {
+    # Returns summary(glht) or NULL
+    if (length(groups) == 1) {
+      lv <- levels(dt[[groups[1]]]); if (length(lv) < 3) return(NULL)
+      m2 <- glm(as.formula(paste(y, "~", groups[1], "- 1")), data = dt, family = fam)
+      # Build mcp() call dynamically: mcp(group = "Tukey")
+      mcps <- list("Tukey"); names(mcps) <- groups[1]
+      linf <- do.call(multcomp::mcp, mcps)
+      res <- tryCatch(multcomp::glht(m2, linfct = linf), error = function(e) NULL)
+      return(if (is.null(res)) NULL else summary(res))
+    }
+    
+    if (isTRUE(used_interaction)) {
+      lv <- levels(dt[["interaction_term"]]); if (length(lv) < 3) return(NULL)
+      mcps <- list("Tukey"); names(mcps) <- "interaction_term"
+      linf <- do.call(multcomp::mcp, mcps)
+      res <- tryCatch(multcomp::glht(model, linfct = linf), error = function(e) NULL)
+      return(if (is.null(res)) NULL else summary(res))
+    }
+    
+    # Full factorial: not running omnibus Tukey over all cells here (prefer emmeans)
+    NULL
+  }
+  
+  .posthoc_emmeans <- function(model, groups, used_interaction, full_factorial, emmeans_simple_for = NULL) {
+    if (!requireNamespace("emmeans", quietly = TRUE)) return(NULL)
+    
+    if (length(groups) == 1) {
+      em <- emmeans::emmeans(model, specs = groups[1])
+      return(list(
+        table = summary(emmeans::contrast(em, method = "tukey")),
+        emm_obj = em
+      ))
+    }
+    
+    if (isTRUE(full_factorial)) {
+      # FIX: specs must be a one-sided formula (~ A | B), not "A | B"
+      if (is.null(emmeans_simple_for)) emmeans_simple_for <- groups[1]
+      # ensure valid target and conditioning factors
+      if (!emmeans_simple_for %in% groups) emmeans_simple_for <- groups[1]
+      other <- setdiff(groups, emmeans_simple_for)
+      if (length(other) == 0) other <- groups[1]
+      
+      spec <- as.formula(paste("~", emmeans_simple_for, "|", other[1]))
+      em <- emmeans::emmeans(model, specs = spec)
+      return(list(
+        table = summary(emmeans::contrast(em, method = "pairwise", adjust = "tukey")),
+        emm_obj = em
+      ))
+    }
+    
+    if (isTRUE(used_interaction)) {
+      em <- emmeans::emmeans(model, specs = "interaction_term")
+      return(list(
+        table = summary(emmeans::contrast(em, method = "tukey")),
+        emm_obj = em
+      ))
+    }
+    
+    NULL
+  }
+  # ======================= End Helpers =======================
+  
+  posthoc_method <- match.arg(posthoc_method)
+  
+  dt <- data.table::as.data.table(data)
+  .check_inputs(dt, response_var, group_vars_vec)
+  dt <- .coerce_groups_to_factor(dt, group_vars_vec)
+  
+  built <- .build_formula_and_data(dt, response_var, group_vars_vec, full_factorial)
+  model <- .fit_glm(built$formula, built$data, family)
+  
+  model_resid <- residuals(model, type = "deviance")
+  
+  anova_obj <- .anova_car(model, sum_squares_type, family)
+  anova_df  <- as.data.frame(anova_obj)
+  
+  eff <- .effect_sizes(model, family, response_var, built$data)
+  
   model_stats <- list(
     AIC = AIC(model),
     BIC = BIC(model),
@@ -180,113 +284,35 @@ anova_glm <- function(data, response_var, group_vars_vec,
     DF_residual = model$df.residual
   )
   
-  # --- Post-hoc Analysis ---
   posthoc <- NULL
-  if (!full_factorial) {
-    if (length(unique(data$interaction_term)) > 2) {
-      posthoc_model <- tryCatch({
-        if (length(group_vars_vec) == 1) {
-          # For a single grouping variable, refit without an intercept so that
-          # the coefficients match the factor levels (required for Tukey comparisons)
-          model_posthoc <- glm(as.formula(paste(response_var, "~ interaction_term - 1")),
-                               data = data, family = family)
-          linfct <- mcp(interaction_term = "Tukey")
-          multcomp::glht(model_posthoc, linfct = linfct, vcov = vcov(model_posthoc))
-        } else {
-          # For multiple grouping variables (non-full-factorial), use the existing model.
-          linfct <- mcp(interaction_term = "Tukey")
-          multcomp::glht(model, linfct = linfct, vcov = vcov(model))
-        }
-      }, error = function(e) {
-        warning("Post-hoc analysis could not be performed: ", e$message)
-        return(NULL)
-      })
-      if (!is.null(posthoc_model)) {
-        posthoc <- summary(posthoc_model)
-      }
-    }
+  if (posthoc_method == "multcomp") {
+    posthoc <- .posthoc_multcomp(model, built$data, group_vars_vec, built$used_interaction, response_var, family)
+  } else if (posthoc_method == "emmeans") {
+    posthoc <- .posthoc_emmeans(model, group_vars_vec, built$used_interaction, full_factorial, emmeans_simple_for)
   }
   
-  # --- Confidence Intervals ---
-  conf_intervals <- as.data.frame(confint(model))
-  colnames(conf_intervals) <- c("2.5 %", "97.5 %")
+  conf_intervals <- .confint_safe(model)
   
-  # --- Create Boxplot of Response by Group ---
-  if (length(group_vars_vec) == 1) {
-    plot_box <- ggplot(data, aes_string(x = group_vars_vec[1], y = response_var,
-                                        fill = group_vars_vec[1])) +
-      geom_boxplot(show.legend = FALSE) +
-      scale_fill_brewer(palette = "Dark2") +
-      labs(title = "Boxplot of Response by Group",
-           subtitle = paste("Response Variable:", response_var,
-                            "| Group Variable:", group_vars_vec[1]),
-           x = group_vars_vec[1],
-           y = response_var) +
-      theme_minimal() +
-      theme(
-        plot.title = element_text(hjust = 0.5, face = "bold", size = 20),
-        plot.subtitle = element_text(hjust = 0.5, size = 15),
-        axis.title.x = element_text(face = "bold", size = 14),
-        axis.title.y = element_text(face = "bold", size = 14),
-        axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 12),
-        axis.text.y = element_text(size = 12)
-      )
-  } else {
-    if (full_factorial) {
-      facet_formula <- as.formula(paste("~", paste(group_vars_vec[-1], collapse = " + ")))
-      plot_box <- ggplot(data, aes_string(x = group_vars_vec[1], y = response_var,
-                                          fill = group_vars_vec[1])) +
-        geom_boxplot(show.legend = FALSE) +
-        scale_fill_brewer(palette = "Dark2") +
-        labs(title = "Boxplot of Response by Group",
-             subtitle = paste("Response Variable:", response_var,
-                              "| Group Variables:", paste(group_vars_vec, collapse = ", ")),
-             x = group_vars_vec[1],
-             y = response_var) +
-        theme_minimal() +
-        theme(
-          plot.title = element_text(hjust = 0.5, face = "bold", size = 20),
-          plot.subtitle = element_text(hjust = 0.5, size = 15),
-          axis.title.x = element_text(face = "bold", size = 14),
-          axis.title.y = element_text(face = "bold", size = 14),
-          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 12),
-          axis.text.y = element_text(size = 12)
-        ) +
-        facet_grid(facet_formula)
-    } else {
-      plot_box <- ggplot(data, aes_string(x = "interaction_term", y = response_var,
-                                          fill = "interaction_term")) +
-        geom_boxplot(show.legend = FALSE) +
-        scale_fill_brewer(palette = "Dark2") +
-        labs(title = "Boxplot of Response by Combined Group",
-             subtitle = paste("Response Variable:", response_var,
-                              "| Combined Group Variables:", paste(group_vars_vec, collapse = ", ")),
-             x = "Combined Group (Interaction Term)",
-             y = response_var) +
-        theme_minimal() +
-        theme(
-          plot.title = element_text(hjust = 0.5, face = "bold", size = 20),
-          plot.subtitle = element_text(hjust = 0.5, size = 15),
-          axis.title.x = element_text(face = "bold", size = 14),
-          axis.title.y = element_text(face = "bold", size = 14),
-          axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 12),
-          axis.text.y = element_text(size = 12)
-        )
-    }
+  residuals_plot <- .residuals_plot(model, plot_residuals)
+  plot_box       <- .boxplot(built$data, response_var, group_vars_vec, built$used_interaction, full_factorial, family)
+  
+  notes <- c()
+  od_note <- .overdispersion_note(model, family)
+  if (!is.null(od_note)) notes <- c(notes, od_note)
+  if (family$family != "gaussian") {
+    notes <- c(notes, "For non-Gaussian families, interpret boxplots cautiously; consider marginal means plots (e.g., emmeans) on response or link scale.")
   }
   
-  # --- Return Results ---
-  results <- list(
+  list(
     model = model,
     model_stats = model_stats,
-    anova_test = as.data.frame(anova_test),
+    anova_test = anova_df,
     posthoc = posthoc,
-    effect_size = pseudo_r2,
+    effect_sizes = eff,
     confidence_intervals = conf_intervals,
     residuals = model_resid,
     residuals_plot = residuals_plot,
-    boxplot = plot_box
+    boxplot = plot_box,
+    notes = if (length(notes)) notes else NULL
   )
-  
-  return(results)
 }
