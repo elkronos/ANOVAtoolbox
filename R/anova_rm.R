@@ -1,79 +1,31 @@
-#' Perform Repeated Measures ANOVA with Diagnostics and Effect Size Calculation
+#' Perform Repeated Measures ANOVA with Diagnostics, Sphericity, and Effect Sizes
 #'
-#' This function fits a repeated measures analysis of variance (ANOVA) model to data in long format,
-#' using one or more within-subject (and optionally between-subject) factors. It uses \code{afex::aov_ez}
-#' for model fitting, assesses model assumptions (normality and sphericity), computes effect sizes (partial eta²),
-#' and generates various diagnostic plots (residuals, Q-Q, and LM diagnostic plots). Optionally, if an estimated marginal
-#' means specification is provided, the function computes and plots estimated marginal means.
+#' Fits a repeated-measures ANOVA using \code{afex::aov_ez} and provides:
+#' - Normality diagnostics (residuals + Shapiro–Wilk)
+#' - Valid sphericity diagnostics (Mauchly's test) via a multivariate-wide model
+#' - Effect sizes (partial eta^2)
+#' - Optional LM diagnostic plots
+#' - Optional estimated marginal means (EMMs) with a simple plot
 #'
-#' @param data A \code{data.frame} containing the dataset in long format.
-#' @param subject A character string specifying the name of the subject identifier column.
-#' @param dv A character string specifying the name of the dependent variable column.
-#' @param within A character vector specifying the names of the within-subject factor(s).
-#' @param between (Optional) A character vector specifying the names of the between-subject factor(s).
-#' @param factorize Logical. If \code{TRUE} (default), the function converts the subject and grouping columns to factors,
-#'   and the dependent variable to numeric.
-#' @param emm_specs (Optional) Specification for estimated marginal means (e.g., a factor name or formula). If provided,
-#'   an estimated marginal means plot is generated.
-#' @param diagnostics Logical. If \code{TRUE} (default), standard diagnostic plots of the underlying linear model are generated.
-#' @param verbose Logical. If \code{TRUE} (default), progress messages are printed to the console.
-#' @param ... Additional arguments passed to \code{afex::aov_ez}.
+#' @param data data.frame in long format.
+#' @param subject Character. Subject identifier column.
+#' @param dv Character. Dependent variable column.
+#' @param within Character vector. Within-subject factor(s).
+#' @param between Character vector or NULL. Between-subject factor(s).
+#' @param factorize Logical. If TRUE, coerces subject/within/between to factors and dv to numeric. Default TRUE.
+#' @param emm_specs Optional. Passed to \code{emmeans::emmeans(specs=...)}.
+#' @param diagnostics Logical. If TRUE, produces standard LM diagnostic plots when possible. Default TRUE.
+#' @param verbose Logical. If TRUE, prints progress messages. Default TRUE.
+#' @param ... Passed to \code{afex::aov_ez}.
 #'
-#' @details
-#' The function carries out the following steps:
-#' \enumerate{
-#'   \item \strong{Input Checks and Data Preparation:} Verifies that the specified subject, dependent variable,
-#'     and factor columns exist in \code{data}. Optionally converts these columns to the proper data types.
-#'   \item \strong{Model Fitting:} Fits a repeated measures ANOVA using \code{afex::aov_ez}.
-#'   \item \strong{Normality Diagnostics:} Computes residuals from the underlying linear model, performs a Shapiro–Wilk
-#'         test for normality, and generates a residuals vs index plot and a normal Q-Q plot.
-#'   \item \strong{Sphericity Diagnostics:} If applicable (multiple within factors or one factor with more than two levels),
-#'         performs Mauchly's test for sphericity using \code{car::Anova}.
-#'   \item \strong{Effect Size Calculation:} Computes partial eta² for the ANOVA using the \code{effectsize} package.
-#'   \item \strong{Additional Diagnostics:} Optionally produces standard diagnostic plots of the underlying linear model.
-#'   \item \strong{Estimated Marginal Means (EMMs):} If \code{emm_specs} is provided, computes and plots estimated marginal means
-#'         using \code{emmeans} and \code{ggplot2}.
-#' }
-#'
-#' @return A list containing:
+#' @return A list with elements:
 #' \describe{
-#'   \item{\code{anova_obj}}{The fitted repeated measures ANOVA object from \code{afex::aov_ez} (with the processed data attached).}
-#'   \item{\code{normality}}{A list with the residuals and Shapiro–Wilk test results for normality.}
-#'   \item{\code{sphericity}}{The results of Mauchly's test for sphericity (if applicable), otherwise \code{NULL}.}
-#'   \item{\code{effect_sizes}}{A table of effect sizes (partial eta²).}
-#'   \item{\code{diagnostic_plots}}{A recorded plot object (using \code{recordPlot}) for the diagnostic plots of the LM, if generated.}
-#'   \item{\code{emm_plot}}{A \code{ggplot2} object displaying the estimated marginal means (if \code{emm_specs} is provided), otherwise \code{NULL}.}
-#' }
-#'
-#' @seealso \code{\link[afex]{aov_ez}}, \code{\link[emmeans]{emmeans}}, \code{\link[car]{Anova}},
-#'   \code{\link[effectsize]{eta_squared}}, \code{\link[ggplot2]{ggplot}}
-#'
-#' @examples
-#' \dontrun{
-#'   # Assume 'my_data' is a data.frame in long format with columns:
-#'   # "ID" (subject identifier), "Score" (dependent variable), "Time" (within-subject factor),
-#'   # and "Group" (between-subject factor).
-#'
-#'   results <- anova_rm(data = my_data,
-#'                       subject = "ID",
-#'                       dv = "Score",
-#'                       within = c("Time"),
-#'                       between = c("Group"),
-#'                       factorize = TRUE,
-#'                       emm_specs = "Time",
-#'                       diagnostics = TRUE,
-#'                       verbose = TRUE)
-#'
-#'   # Display the fitted ANOVA model
-#'   print(results$anova_obj)
-#'
-#'   # View the results of the Shapiro–Wilk normality test
-#'   print(results$normality$shapiro_test)
-#'
-#'   # If generated, display the estimated marginal means plot
-#'   if (!is.null(results$emm_plot)) {
-#'     print(results$emm_plot)
-#'   }
+#'   \item{anova_obj}{afex_aov object with processed data attached.}
+#'   \item{normality}{List with residuals and Shapiro–Wilk test.}
+#'   \item{mauchly}{Mauchly's test table (if applicable), otherwise NULL.}
+#'   \item{effect_sizes}{Partial eta^2 table.}
+#'   \item{diagnostic_plots}{Recorded base R plot of LM diagnostics (if produced).}
+#'   \item{emm_plot}{ggplot2 object of EMMs (if requested), otherwise NULL.}
 #' }
 #'
 #' @export
@@ -82,131 +34,276 @@
 #' @import car
 #' @import effectsize
 #' @import ggplot2
-anova_rm <- function(data, subject, dv, within, between = NULL,
-                     factorize = TRUE, emm_specs = NULL,
-                     diagnostics = TRUE, verbose = TRUE, ...) {
-  # --- Input Checks and Data Preparation ---
-  req_cols <- c(subject, dv, within)
-  if (!is.null(between)) {
-    req_cols <- c(req_cols, between)
-  }
-  missing_cols <- setdiff(req_cols, names(data))
-  if (length(missing_cols) > 0) {
-    stop("The following required columns are missing in data: ",
-         paste(missing_cols, collapse = ", "))
+#' @importFrom stats shapiro.test residuals lm complete.cases
+anova_rm <- function(
+    data, subject, dv, within, between = NULL,
+    factorize = TRUE, emm_specs = NULL,
+    diagnostics = TRUE, verbose = TRUE, ...
+) {
+  
+  # -------------------- helpers --------------------
+  .msg <- function(...) if (isTRUE(verbose)) cat(...)
+  
+  .check_and_prepare <- function(data, subject, dv, within, between, factorize) {
+    req_cols <- c(subject, dv, within, if (!is.null(between)) between)
+    missing_cols <- setdiff(req_cols, names(data))
+    if (length(missing_cols) > 0) {
+      stop("Missing required columns: ", paste(missing_cols, collapse = ", "))
+    }
+    
+    d <- data
+    
+    if (factorize) {
+      d[[subject]] <- as.factor(d[[subject]])
+      dv_old <- d[[dv]]
+      d[[dv]] <- suppressWarnings(as.numeric(d[[dv]]))
+      na_new <- sum(is.na(d[[dv]]) & !is.na(dv_old))
+      if (na_new > 0) {
+        warning(na_new, " NA(s) introduced by coercing '", dv, "' to numeric.")
+      }
+      d[within] <- lapply(d[within], as.factor)
+      if (!is.null(between)) d[between] <- lapply(d[between], as.factor)
+    }
+    
+    d
   }
   
-  if (factorize) {
-    data[[subject]] <- as.factor(data[[subject]])
-    data[[dv]] <- as.numeric(data[[dv]])
-    data[within] <- lapply(data[within], as.factor)
-    if (!is.null(between)) {
-      data[between] <- lapply(data[between], as.factor)
+  # Pre-balance subjects to avoid afex missing-ID warning
+  .prebalance_subjects <- function(d, subject, dv, within, between = NULL, verbose = TRUE) {
+    SEP <- "__SEP__"
+    lab_df <- d[within]
+    lab_df[within] <- lapply(lab_df[within], function(x) droplevels(as.factor(x)))
+    lab_df[[".cell."]] <- do.call(interaction, c(lab_df[within], list(drop = TRUE, sep = SEP)))
+    
+    d2 <- cbind(d[c(subject, dv, if (!is.null(between)) between)], lab_df[".cell."])
+    names(d2)[names(d2) == ".cell."] <- "cell"
+    
+    wide <- stats::reshape(d2, idvar = subject, timevar = "cell", v.names = dv, direction = "wide")
+    
+    dv_prefix <- paste0(dv, ".")
+    esc <- gsub("([][\\^$.|()?*+{}])", "\\\\\\1", dv_prefix)
+    resp_cols <- grep(paste0("^", esc), names(wide), value = TRUE)
+    
+    keep_ids <- wide[[subject]][stats::complete.cases(wide[, resp_cols, drop = FALSE])]
+    dropped  <- setdiff(unique(d[[subject]]), keep_ids)
+    
+    if (length(dropped) > 0L && isTRUE(verbose)) {
+      cat(
+        "Prebalancing: dropping ", length(dropped), " subject(s) with incomplete within cells: ",
+        paste(head(as.character(dropped), 10), collapse = ", "),
+        if (length(dropped) > 10) ", ..." else "", "\n",
+        sep = ""
+      )
+    }
+    
+    d[d[[subject]] %in% keep_ids, , drop = FALSE]
+  }
+  
+  .fit_afex <- function(d, subject, dv, within, between, ...) {
+    dots <- list(...)
+    if (is.null(dots$na.rm)) dots$na.rm <- TRUE
+    do.call(
+      afex::aov_ez,
+      c(list(
+        id      = subject,
+        dv      = dv,
+        data    = d,
+        within  = within,
+        between = between
+      ), dots)
+    )
+  }
+  
+  .get_residuals <- function(anova_obj) {
+    if (!is.null(anova_obj$lm)) {
+      return(stats::residuals(anova_obj$lm))
+    }
+    if (!is.null(anova_obj$aov)) {
+      return(stats::residuals(anova_obj$aov))
+    }
+    NULL
+  }
+  
+  .normality <- function(resid_values) {
+    if (is.null(resid_values)) {
+      list(residuals = NULL, shapiro_test = NULL)
+    } else {
+      list(
+        residuals    = resid_values,
+        shapiro_test = stats::shapiro.test(resid_values)
+      )
     }
   }
   
-  # --- Model Fitting ---
-  if (verbose) cat("Fitting repeated measures ANOVA model...\n")
-  anova_obj <- afex::aov_ez(id = subject,
-                            dv = dv,
-                            data = data,
-                            within = within,
-                            between = between,
-                            ...)
-  if (verbose) print(anova_obj)
+  .plot_lm_diagnostics <- function(model) {
+    if (is.null(model)) return(NULL)
+    if (!inherits(model, "lm") || inherits(model, "mlm")) return(NULL)
+    op <- graphics::par(no.readonly = TRUE)
+    on.exit(graphics::par(op), add = TRUE)
+    graphics::par(mfrow = c(2, 2))
+    graphics::plot(model)
+    grDevices::recordPlot()
+  }
   
-  # Override the 'data' element in the returned object with our processed data.
-  anova_obj$data <- data
-  
-  # --- Normality Diagnostics ---
-  if (verbose) cat("Performing normality diagnostics...\n")
-  if (!is.null(anova_obj$lm)) {
-    resid_values <- residuals(anova_obj$lm)
-    shapiro_res <- shapiro.test(resid_values)
+  # Robust sphericity/Mauchly via MLM on wide data
+  .mauchly_test <- function(d, subject, dv, within, between) {
+    keep_cols <- c(subject, dv, within, if (!is.null(between)) between)
+    d <- d[stats::complete.cases(d[, keep_cols, drop = FALSE]), , drop = FALSE]
     
-    op <- par(mfrow = c(1, 2))
-    plot(resid_values, main = "Residuals vs Index",
-         xlab = "Observation Index", ylab = "Residuals")
-    qqnorm(resid_values, main = "Normal Q-Q Plot")
-    qqline(resid_values)
-    par(op)
-  } else {
-    warning("No underlying linear model found; skipping normality diagnostics.")
-    resid_values <- NULL
-    shapiro_res <- NULL
+    # Count within-cells (product of levels); need >=3
+    within_levels <- lapply(within, function(w) levels(as.factor(d[[w]])))
+    n_cells <- prod(vapply(within_levels, length, integer(1)))
+    if (n_cells < 3) return(NULL)
+    
+    # Build cell label
+    SEP <- "__SEP__"
+    lab_df <- d[within]
+    lab_df[within] <- lapply(lab_df[within], function(x) droplevels(as.factor(x)))
+    lab_df[[".cell."]] <- do.call(interaction, c(lab_df[within], list(drop = TRUE, sep = SEP)))
+    
+    d2 <- cbind(d[c(subject, dv, if (!is.null(between)) between)], lab_df[".cell."])
+    names(d2)[names(d2) == ".cell."] <- "cell"
+    
+    wide <- stats::reshape(
+      d2, idvar = subject, timevar = "cell", v.names = dv, direction = "wide"
+    )
+    
+    dv_prefix <- paste0(dv, ".")
+    esc <- gsub("([][\\^$.|()?*+{}])", "\\\\\\1", dv_prefix)
+    resp_cols <- grep(paste0("^", esc), names(wide), value = TRUE)
+    if (length(resp_cols) < 3) return(NULL)
+    
+    keep_resp <- vapply(resp_cols, function(col) any(!is.na(wide[[col]])), logical(1))
+    resp_cols <- resp_cols[keep_resp]
+    if (length(resp_cols) < 3) return(NULL)
+    
+    Y <- as.matrix(wide[, resp_cols, drop = FALSE])
+    
+    # Between formula
+    if (is.null(between) || length(between) == 0) {
+      form <- stats::as.formula("Y ~ 1")
+    } else {
+      form <- stats::as.formula(paste("Y ~", paste(between, collapse = " * ")))
+      for (b in between) wide[[b]] <- as.factor(wide[[b]])
+    }
+    
+    fit_mlm <- stats::lm(form, data = wide)  # Y is found in parent frame
+    
+    # Build idata by reversing label construction
+    cell_names <- sub(paste0("^", esc), "", resp_cols, perl = TRUE)
+    split_levels <- strsplit(cell_names, split = SEP, fixed = TRUE)
+    
+    pieces_len <- lengths(split_levels)
+    consistent <- (length(unique(pieces_len)) == 1L) && (unique(pieces_len) == length(within))
+    
+    if (!consistent) {
+      idata <- data.frame(tmp = factor(cell_names))
+      names(idata) <- within[1]
+    } else {
+      idata <- as.data.frame(do.call(rbind, split_levels), stringsAsFactors = TRUE)
+      names(idata) <- within
+      idata[] <- lapply(idata, factor)
+    }
+    
+    idesign <- stats::as.formula(paste("~", paste(within, collapse = " * ")))
+    anv <- car::Anova(fit_mlm, idata = idata, idesign = idesign, type = "III")
+    
+    # Mauchly's test per within effect
+    tryCatch(car::Mauchly.test(anv), error = function(e) NULL)
   }
   
-  # --- Sphericity Diagnostics ---
-  check_sph <- FALSE
-  if (length(within) > 1) {
-    check_sph <- TRUE
-  } else if (length(within) == 1) {
-    if (nlevels(as.factor(data[[within]])) > 2) check_sph <- TRUE
+  .eta_sq_safe <- function(anova_obj) {
+    if (!is.null(anova_obj$Anova)) {
+      es <- try(effectsize::eta_squared(anova_obj$Anova, partial = TRUE), silent = TRUE)
+      if (!inherits(es, "try-error")) return(es)
+    }
+    es <- try(effectsize::eta_squared(anova_obj, partial = TRUE), silent = TRUE)
+    if (!inherits(es, "try-error")) return(es)
+    warning("Effect size calculation failed; returning NULL.")
+    NULL
   }
   
-  if (check_sph) {
-    if (verbose) cat("Performing sphericity diagnostics...\n")
-    data[within] <- lapply(data[within], as.factor)
-    idata <- unique(data[within])
-    within_formula <- as.formula(paste("~", paste(within, collapse = "*")))
-    fit <- lm(as.formula(paste(dv, "~ 1")), data = data)
-    sphericity <- tryCatch({
-      car::Anova(fit, idata = idata, idesign = within_formula, type = "III")
-    }, error = function(e) {
-      warning("Sphericity test failed: ", e$message)
-      NULL
-    })
-  } else {
-    if (verbose) cat("Sphericity test not applicable (insufficient levels in within-subject factor).\n")
-    sphericity <- NULL
-  }
-  
-  # --- Effect Size Calculation ---
-  if (verbose) cat("Calculating effect sizes...\n")
-  effect_sizes <- effectsize::eta_squared(anova_obj)
-  
-  # --- Additional Diagnostic Plots ---
-  diagnostic_plots <- NULL
-  if (diagnostics && !is.null(anova_obj$lm)) {
-    diagnostic_plots <- tryCatch({
-      if (inherits(anova_obj$lm, "lm") && !inherits(anova_obj$lm, "mlm")) {
-        op <- par(mfrow = c(2, 2))
-        plot(anova_obj$lm)
-        par(op)
-        recordPlot()  # Capture the base R diagnostic plots
-      } else {
-        # For non-univariate models, simply return NULL without warning.
-        NULL
-      }
-    }, error = function(e) {
-      warning("Diagnostic plot generation failed: ", e$message)
-      NULL
-    })
-  }
-  
-  # --- Estimated Marginal Means Plot ---
-  emm_plot <- NULL
-  if (!is.null(emm_specs)) {
-    if (verbose) cat("Computing and plotting estimated marginal means...\n")
+  .emm_plotter <- function(anova_obj, emm_specs) {
+    if (is.null(emm_specs)) return(NULL)
     emm_obj <- emmeans::emmeans(anova_obj, specs = emm_specs)
-    emm_df <- as.data.frame(emm_obj)
-    # Use the first column as the x-axis variable for the plot.
-    xvar <- names(emm_df)[1]
-    emm_plot <- ggplot2::ggplot(emm_df, ggplot2::aes_string(x = xvar, y = "emmean", group = 1)) +
+    df <- as.data.frame(emm_obj)
+    if (ncol(df) < 2L || !"emmean" %in% names(df)) return(NULL)
+    xvar <- names(df)[1L]
+    
+    # Avoid aes_string(): create a temporary .x column for plotting
+    df$.x <- df[[xvar]]
+    
+    p <- ggplot2::ggplot(df, ggplot2::aes(x = .x, y = emmean, group = 1)) +
       ggplot2::geom_point(size = 3) +
       ggplot2::geom_line() +
+      {
+        if ("SE" %in% names(df)) {
+          ggplot2::geom_errorbar(
+            ggplot2::aes(ymin = emmean - SE, ymax = emmean + SE),
+            width = 0.15
+          )
+        } else {
+          ggplot2::geom_blank()
+        }
+      } +
       ggplot2::labs(x = xvar, y = "Estimated Marginal Mean") +
       ggplot2::theme_minimal()
-    print(emm_plot)
+    p
   }
   
-  # --- Return Results ---
-  return(list(
-    anova_obj = anova_obj,
-    normality = list(residuals = resid_values, shapiro_test = shapiro_res),
-    sphericity = sphericity,
-    effect_sizes = effect_sizes,
+  # -------------------- workflow --------------------
+  .msg("Preparing data...\n")
+  data_prep <- .check_and_prepare(data, subject, dv, within, between, factorize)
+  
+  # NEW: pre-balance subjects to avoid afex's missing-ID warning banner
+  data_prep <- .prebalance_subjects(data_prep, subject, dv, within, between, verbose)
+  
+  .msg("Fitting repeated-measures ANOVA model (afex::aov_ez)...\n")
+  anova_obj <- .fit_afex(data_prep, subject, dv, within, between, ...)
+  
+  # Attach processed data for convenience
+  anova_obj$data <- data_prep
+  if (isTRUE(verbose)) print(anova_obj)
+  
+  # Normality diagnostics
+  .msg("Computing normality diagnostics...\n")
+  resid_values <- .get_residuals(anova_obj)
+  normality <- .normality(resid_values)
+  
+  # Optional LM diagnostics
+  diagnostic_plots <- NULL
+  if (isTRUE(diagnostics) && !is.null(anova_obj$lm)) {
+    .msg("Producing LM diagnostic plots...\n")
+    diagnostic_plots <- tryCatch(.plot_lm_diagnostics(anova_obj$lm),
+                                 error = function(e) { warning(e$message); NULL })
+  }
+  
+  # Sphericity / Mauchly
+  .msg("Evaluating sphericity (Mauchly's test) when applicable...\n")
+  mauchly <- tryCatch(
+    .mauchly_test(data_prep, subject, dv, within, between),
+    error = function(e) { warning("Sphericity test failed: ", e$message); NULL }
+  )
+  
+  # Effect sizes
+  .msg("Computing partial eta^2 effect sizes...\n")
+  effect_sizes <- .eta_sq_safe(anova_obj)
+  
+  # EMM plot (optional)
+  emm_plot <- NULL
+  if (!is.null(emm_specs)) {
+    .msg("Computing and plotting estimated marginal means...\n")
+    emm_plot <- tryCatch(.emm_plotter(anova_obj, emm_specs),
+                         error = function(e) { warning(e$message); NULL })
+  }
+  
+  # Return
+  list(
+    anova_obj        = anova_obj,
+    normality        = normality,
+    mauchly          = mauchly,
+    effect_sizes     = effect_sizes,
     diagnostic_plots = diagnostic_plots,
-    emm_plot = emm_plot
-  ))
+    emm_plot         = emm_plot
+  )
 }
